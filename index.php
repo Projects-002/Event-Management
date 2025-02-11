@@ -47,7 +47,7 @@ background: linear-gradient(73deg, rgba(255,255,255,1) 8%, rgba(29, 180, 44, 0.2
                 <a class="nav-link" href="#">Blog</a>
               </li>
             </ul>
-              <button onclick="window.location='auth/index.html'" class="btn text-white" style="background-color: #71c55d;" >Dashboard</button>
+              <button onclick="window.location='auth/index.php'" class="btn text-white" style="background-color: #71c55d;" >Dashboard</button>
           </div>
         </div>
       </nav>
