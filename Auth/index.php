@@ -30,21 +30,26 @@ $url = $client->createAuthUrl();
 
 
 //Email and pass authentication
+
 if (isset($_POST['login-email'])) {
 
     $email = $_POST['email'];
     $pass = $_POST['pass'];
 
     // Check if the user exists
-    $sql = "SELECT * FROM users WHERE email = ?AND User_Role = 'user'";
+    $sql = "SELECT * FROM users WHERE email = :email AND User_Role = 'user'";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $email);
+    
+    // Use bindValue or bindParam to bind the email parameter
+    $stmt->bindValue(':email', $email, PDO::PARAM_STR);
     $stmt->execute();
-    $result = $stmt->get_result();
 
-    if ($result->num_rows > 0) {
+    // Check if any user was found
+    if ($stmt->rowCount() > 0) {
         // Get the user information
-        $user = $result->fetch_assoc();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Verify the password
         if (password_verify($pass, $user['Pass'])) {
             $_SESSION['email'] = $user['Email'];
             $_SESSION['name'] = $user['First_Name'] . ' ' . $user['Last_Name'];
@@ -52,13 +57,13 @@ if (isset($_POST['login-email'])) {
             $_SESSION['avatar'] = $user['Avatar'];
 
             // Get the user ID
-            $id = $stmt->insert_id ? $stmt->insert_id : $conn->query("SELECT SN FROM users WHERE Email = '$email'")->fetch_object()->SN;
+            $id = $user['SN']; // This assumes the SN column is the user ID
 
             // Store user information in session
             $_SESSION['email_auth'] = $id;
 
             // Redirect to home page
-            header('location: ../portal/home.php');
+            header('location: ../eventcalendar/index.php');
             exit();
         } else {
             echo "<script>alert('Incorrect email or password');</script>";
@@ -67,6 +72,8 @@ if (isset($_POST['login-email'])) {
         echo "<script>alert('Incorrect email or password');</script>";
     }
 }
+?>
+
 ?>
 
 <!DOCTYPE html>

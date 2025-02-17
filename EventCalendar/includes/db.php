@@ -2,8 +2,9 @@
 // Database connection details
 $servername = "localhost";
 $username = "root";
-$password = "22092209";
-$dbname = "event_calendar";
+$password = "1234";
+$dbname = "Campus_Planner";
+$conn = '';
 
 try {
     // Create a new PDO instance and set the error mode to exception

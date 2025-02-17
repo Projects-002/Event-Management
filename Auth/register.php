@@ -1,10 +1,10 @@
 <?php
-use PHPMailer\PHPMailer\PHPMailer;// Import PHPMailer classes into the global namespace
-use PHPMailer\PHPMailer\Exception;// Import PHPMailer classes into the global namespace
-Use Dotenv\Dotenv;// Import Dotenv classes into the global namespace
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+use Dotenv\Dotenv;
 
 // Load Composer's autoloader
-include '../vendor/autoload.php';
+require '../vendor/autoload.php';
 require_once '../Database/db.php';
 
 // Start the session
@@ -14,51 +14,47 @@ session_start();
 $dotenv = Dotenv::createImmutable('../');
 $dotenv->load();
 
-
 if (isset($_POST['reg_new'])) {
-
     $new_user = $_POST['new_email']; 
     $token = bin2hex(random_bytes(16)); // Generate a unique token
     $expires_at = date("Y-m-d H:i:s", strtotime('+1 hour')); // Set expiration time to 1 hour from now
 
     // Check if the user already exists
-    $sql = "SELECT * FROM users WHERE email = ?";
+    $sql = "SELECT * FROM users WHERE email = :email"; 
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $new_user);
+    $stmt->bindParam(':email', $new_user, PDO::PARAM_STR);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC); // Fetch a single row
 
-    if ($result->num_rows > 0) {
+    if ($result) {
         echo '<div class="alert alert-warning container mt-5 w-50" role="alert">
               <i class="bi bi-envelope-exclamation me-3"></i> The email address already exists. Please use a different email address.
               </div>';
     } else {
-
         // Check if the user already exists in the user_tokens table
-        $sql = "SELECT * FROM user_tokens WHERE email = ?";
+        $sql = "SELECT * FROM user_tokens WHERE email = :email";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $new_user);
+        $stmt->bindParam(':email', $new_user, PDO::PARAM_STR);
         $stmt->execute();
-        $result = $stmt->get_result();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC); // Use fetch() instead of get_result()
 
-
-        if ($result->num_rows > 0) {
+        if ($result) {
             // Update the token and expiration time
-            $update_token = "UPDATE user_tokens SET token = ?, expires_at = ? WHERE email = ?";
+            $update_token = "UPDATE user_tokens SET token = :token, expires_at = :expires_at WHERE email = :email";
             $stmt = $conn->prepare($update_token);
-            $stmt->bind_param("sss", $token, $expires_at, $new_user);
-            $stmt->execute();
+            $stmt->bindParam(':token', $token, PDO::PARAM_STR);
+            $stmt->bindParam(':expires_at', $expires_at, PDO::PARAM_STR);
+            $stmt->bindParam(':email', $new_user, PDO::PARAM_STR);
         } else {
-
-        // Insert the token into the user_tokens table
-        $insert_token = "INSERT INTO user_tokens (email, token, expires_at) VALUES (?, ?, ?)";
-        $stmt = $conn->prepare($insert_token);
-        $stmt->bind_param("sss", $new_user, $token, $expires_at);
-
+            // Insert the token into the user_tokens table
+            $insert_token = "INSERT INTO user_tokens (email, token, expires_at) VALUES (:email, :token, :expires_at)";
+            $stmt = $conn->prepare($insert_token);
+            $stmt->bindParam(':email', $new_user, PDO::PARAM_STR);
+            $stmt->bindParam(':token', $token, PDO::PARAM_STR);
+            $stmt->bindParam(':expires_at', $expires_at, PDO::PARAM_STR);
         }
 
-
-    if ($stmt->execute()) {
+        if ($stmt->execute()) {
             // Send the email with the registration link
             $mail = new PHPMailer(true);
             try {
@@ -72,20 +68,20 @@ if (isset($_POST['reg_new'])) {
                 $mail->Port = 587;
 
                 // Recipients
-                $mail->setFrom($_ENV['GMAIL_USERNAME'], 'Portfolio Ready');
+                $mail->setFrom($_ENV['GMAIL_USERNAME'], 'Campus Planner');
                 $mail->addAddress($new_user, 'Coder Info');
-                $mail->addReplyTo($_ENV['GMAIL_USERNAME'], 'Portfolio Ready');
+                $mail->addReplyTo($_ENV['GMAIL_USERNAME'], 'Campus Planner');
 
                 // Content
                 $mail->isHTML(true);
-                $mail->Subject = 'Register to Portfolio Ready';
+                $mail->Subject = 'Register to Campus Planner';
                 $mail->Body = '
                 <!DOCTYPE html>
                 <html lang="en">
                 <head>
                   <meta charset="UTF-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Portfolio Ready</title>
+                  <title>Campus Planner</title>
                   <style>
                       body {
                           margin: 0;
@@ -110,15 +106,8 @@ if (isset($_POST['reg_new'])) {
                           margin-bottom: 20px;
                           font-size: 24px;
                       }
-                      .title h1 {
-                          color: #333333;
-                      }
                       .content {
                           margin-bottom: 20px;
-                      }
-                      .content p {
-                          color: #555555;
-                          line-height: 1.6;
                           text-align: center;
                       }
                       .register-link {
@@ -140,46 +129,33 @@ if (isset($_POST['reg_new'])) {
                           color: #777777;
                           font-size: 15px;
                       }
-                      footer p {
-                          margin: 5px 0;
-                      }
-                      footer a {
-                          color: #007bff;
-                          text-decoration: none;
-                      }
-                      footer a:hover {
-                          text-decoration: underline;
-                      }
                   </style>
               </head>
               <body>
                   <div class="container">
                       <div class="title">
-                          <h1>Portfolio Ready</h1>
+                          <h1>Campus planner</h1>
                       </div>
                       <div class="content">
-                          <p>Thank you for your interest in portfolio ready. <br> Your software development success begins here!. <br> Kindly use the following link to register!</p>
+                          <p>Thank you for your interest in Campus planner. <br> Kindly use the following link to register!</p>
                       </div>
                       <div class="register-link">
-                          <a href="http://localhost/PortfolioReady/Auth/email_callback.php?token='.urlencode($token).'">Register Now</a>
+                          <a href="http://localhost/projects/event-management/Auth/email_callback.php?token='.urlencode($token).'">Register Now</a>
                           <p>The link expires in 1 hour</p>
                       </div>
                       <footer>
                           <p>Best Regards,</p>
-                          <p><strong>Astra Softwares</strong></p>
-                          <p><a href="https://astrasoft.tech">www.astrasoft.tech</a></p>
-                          <p>info.astrasoft.tech</p>
-                          <p>All rights reserved.</p>
+                          <p><strong>Everline Senoi</strong></p>
                       </footer>
                   </div>
               </body>
               </html>';
 
-                $mail->AltBody = 'Hello! Welcome to Portfolio Ready.';
+                $mail->AltBody = 'Hello! Welcome to Campus Planner.';
 
                 $mail->send();
                 echo '<div class="container w-50  alert alert-success mt-5" role="alert">
-                      <i class="bi bi-check-circle-fill"></i> Registration link sent successfullly Kindly check your email;
+                      <i class="bi bi-check-circle-fill"></i> Registration link sent successfully! Check your email.
                       </div>';
             } catch (Exception $e) {
                 echo "Message could not be sent. Mailer Error: {$mail->ErrorInfo}";
@@ -188,11 +164,9 @@ if (isset($_POST['reg_new'])) {
             echo "<script>alert('Failed to generate token');</script>";
         }
     }
-    
-    // Close the statement
-    $stmt->close();
- }
+}
 ?>
+
 
 
 <!DOCTYPE html>

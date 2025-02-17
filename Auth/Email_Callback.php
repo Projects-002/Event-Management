@@ -1,78 +1,79 @@
 <?php
 
-//check url for token
-if(!isset($_GET['token'])){
+// Check URL for token
+if (!isset($_GET['token'])) {
     echo "Token not found.";
     exit();
+} else {
+    // Include the database configuration file
+    require_once '../database/db.php';
 
-}else{
-        // Include the database configuration file
-        require_once '../database/db.php';
-        // Get the token from the URL
-        $token = $_GET['token'];
-        //check if token is in database
-        $sql = "SELECT * FROM user_tokens WHERE token = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $token);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $token_data = $result->fetch_assoc();
-    
-        // Check if the token is valid and not expired
-        if ($token_data && strtotime($token_data['expires_at']) > time()) {
-            // Token is valid and not expired
+    // Get the token from the URL
+    $token = $_GET['token'];
 
-            // Get the user's email from the token data
-            $email = $token_data['email'];
+    // Check if token exists in the database
+    $sql = "SELECT * FROM user_tokens WHERE token = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(1, $token, PDO::PARAM_STR); // Bind the token value
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Proceed with the registration process
-            if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Check if the token is valid and not expired
+    if ($result && strtotime($result['expires_at']) > time()) {
+        // Token is valid and not expired
+        $email = $result['email'];
 
-                // Escape user inputs for security
-                $first_name = mysqli_real_escape_string($conn, $_POST['first_name']);
-                $last_name = mysqli_real_escape_string($conn, $_POST['last_name']);
-                $email = mysqli_real_escape_string($conn, $email);
-                $password = mysqli_real_escape_string($conn, $_POST['password']);
-                $confirm_password = mysqli_real_escape_string($conn, $_POST['confirm_password']);
-                // Validate input
-                if (empty($first_name) || empty($last_name) || empty($password) || empty($confirm_password)) {
-                    echo "All fields are required.";
-                    exit();
-                } elseif ($password != $confirm_password) {
-                    echo "Passwords do not match.";
+        // Proceed with the registration process
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            // Directly use POST data for the PDO prepared statement
+            $first_name = $_POST['first_name'];
+            $last_name = $_POST['last_name'];
+            $password = $_POST['password'];
+            $confirm_password = $_POST['confirm_password'];
+
+            // Validate input
+            if (empty($first_name) || empty($last_name) || empty($password) || empty($confirm_password)) {
+                echo "All fields are required.";
+                exit();
+            } elseif ($password != $confirm_password) {
+                echo "Passwords do not match.";
+                exit();
+            } else {
+                // Hash the password
+                $password = password_hash($password, PASSWORD_DEFAULT);
+
+                // Insert user data into the database
+                $sql = "INSERT INTO users (first_name, last_name, email, Pass) VALUES (?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindValue(1, $first_name, PDO::PARAM_STR);
+                $stmt->bindValue(2, $last_name, PDO::PARAM_STR);
+                $stmt->bindValue(3, $email, PDO::PARAM_STR);
+                $stmt->bindValue(4, $password, PDO::PARAM_STR);
+
+                if ($stmt->execute()) {
+                    // Delete the token from the user_tokens table
+                    $sql = "DELETE FROM user_tokens WHERE token = ?";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bindValue(1, $token, PDO::PARAM_STR);
+                    $stmt->execute();
+                    echo "Registration successful!";
                     exit();
                 } else {
-                    // Hash the password
-                    $password = password_hash($password, PASSWORD_DEFAULT);
-                    // Insert user data into the database
-                    $sql = "INSERT INTO users (first_name, last_name, email, Pass) VALUES (?, ?, ?, ?)";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("ssss", $first_name, $last_name, $email, $password);
-                    if ($stmt->execute()) {
-                        // Delete the token from the user_tokens table
-                        $sql = "DELETE FROM user_tokens WHERE token = ?";
-                        $stmt = $conn->prepare($sql);
-                        $stmt->bind_param("s", $token);
-                        $stmt->execute();
-                        echo "Registration successful!";
-                        exit();
-                    } else {
-                        echo "Registration failed. Please try again.";
-                        exit();
-                    }
+                    echo "Registration failed. Please try again.";
+                    exit();
                 }
             }
-
-            // 
-
-
-        } else {
-            // Token is invalid or expired
-            echo "The registration link has expired.";
-            exit();
         }
+    } else {
+        // Token is invalid or expired
+        echo "The registration link has expired.";
+        exit();
+    }
 }
 ?>
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
