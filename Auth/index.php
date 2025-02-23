@@ -74,7 +74,6 @@ if (isset($_POST['login-email'])) {
 }
 ?>
 
-?>
 
 <!DOCTYPE html>
 <html lang="en">
