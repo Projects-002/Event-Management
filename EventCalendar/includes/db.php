@@ -2,7 +2,7 @@
 // Database connection details
 $servername = "localhost";
 $username = "root";
-$password = "1234";
+$password = "22092209";
 $dbname = "Campus_Planner";
 $conn = '';
 
